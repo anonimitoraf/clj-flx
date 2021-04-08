@@ -55,7 +55,17 @@
 
 (defn fuzzy-match
   "Given an `search` string and a seq of `candidates`, returns (fuzzy) matched
-  `candidates` ordered ascendingly by score.
+  `candidates` ordered desc by score.
+
+  Optional arguments:
+  * `with-scores?` - Returns the scores along with the matches.
+
+  Usage examples:
+  (fuzzy-match \"abc\" [\"ab\" \"a!b!c!\" \"abc\" \"ab!\"])
+    => (\"abc\" \"a!b!c!\")
+
+  (fuzzy-match \"abc\" [\"ab\" \"a!b!c!\" \"abc\" \"ab!\"] :with-scores? true)
+    => ([\"abc\" 3] [\"a!b!c!\" 1])
 
   Algorithm:
   * A candidate is a match if all of `search`'s chars are in the same order
@@ -64,17 +74,24 @@
   * The more consecutive `search` chars are in a candidate, the higher it's score is.
     The higher the score, the better of a match a candidate is.
     E.g. Given `search` \"abc\", candidate \"ab!c\" is considered a better match than \"a!b!c\"."
-  [search candidates]
+  [search candidates & {:keys [with-scores?]}]
   (if (empty? search)
     candidates
     (let [occurrences (map #(map (fn [i] (all-indices-of % i))
                                  (s/split search #""))
                            candidates)
-          occs-by-choice (zipmap candidates occurrences)]
-      (->> occs-by-choice
-           (filter (fn [[_ o]] (and (chars-all-present? o)
-                                    (chars-in-order? o))))
-           (sort-by (fn [[_ o]] (calc-score o)) >)
-           (map first)))))
+          occs-by-choice (->> occurrences (zipmap candidates) (into []))
+          ;; E.g. (["abc" 3] ["a!b!c!" 1])
+          candidate-occs-tuples
+          (->> occs-by-choice
+               (filter (fn [[_ occs]] (and (chars-all-present? occs)
+                                           (chars-in-order? occs))))
+               (map (fn [[candidate occs]] [candidate (calc-score occs)]))
+               (sort-by second >))]
+      (if with-scores?
+        candidate-occs-tuples
+        (map first candidate-occs-tuples)))))
 
-(comment (fuzzy-match "abcde" ["acbcdae" "asdfasfd" "abcde"]))
+(comment (fuzzy-match "abc" ["ab" "abc" "a!b!c!" "ab!"]))
+(comment (fuzzy-match "abc" ["ab" "abc" "a!b!c!" "ab!"] :with-scores? false))
+(comment (fuzzy-match "abc" ["ab" "abc" "a!b!c!" "ab!"] :with-scores? true))
