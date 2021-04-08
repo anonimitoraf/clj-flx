@@ -33,8 +33,8 @@
                  [[-1] true])
          (second))))
 
-;; TODO Document scoring algo
 (defn ^:private calc-score
+  "Scoring algorithm is explained in `fuzzy-match`'s docstring."
   [occurrences]
   (let [contiguous? (fn [prev-occs curr]
                       (some #(= % (dec curr)) prev-occs))]
