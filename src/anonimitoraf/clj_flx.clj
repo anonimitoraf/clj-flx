@@ -34,17 +34,20 @@
          (second))))
 
 (defn ^:private calc-score
-  "Scoring algorithm is explained in `fuzzy-match`'s docstring."
-  [occurrences]
-  (let [contiguous? (fn [prev-occs curr]
-                      (some #(= % (dec curr)) prev-occs))]
-    (->> occurrences
-         (reduce (fn [[prev-occs score] curr-occs]
-                   [curr-occs (if (some #(contiguous? prev-occs %) curr-occs)
-                                (inc score)
-                                score)])
-                 [[-1] 0])
-         (second))))
+  [occurrences prev-occ score]
+  (let [curr-occs (first occurrences)]
+    (if (empty? curr-occs)
+      score
+      (let [new-occs (drop 1 occurrences)]
+        (->> curr-occs
+             (map (fn [occ]
+                    (calc-score
+                     new-occs
+                     occ
+                     (if (= prev-occ (dec occ))
+                       (inc score)
+                       score))))
+             (apply max))))))
 
 (defn ^:private all-indices-of
   [haystack needle]
@@ -54,7 +57,7 @@
        (map first)))
 
 (defn fuzzy-match
-  "Given an `search` string and a seq of `candidates`, returns (fuzzy) matched
+  "Given a non-empty `search` string and a seq of `candidates`, returns (fuzzy) matched
   `candidates` ordered desc by score.
 
   Optional arguments:
@@ -75,23 +78,24 @@
     The higher the score, the better of a match a candidate is.
     E.g. Given `search` \"abc\", candidate \"ab!c\" is considered a better match than \"a!b!c\"."
   [search candidates & {:keys [with-scores?]}]
-  (if (empty? search)
-    candidates
-    (let [occurrences (map #(map (fn [i] (all-indices-of % i))
-                                 (s/split search #""))
-                           candidates)
-          occs-by-choice (->> occurrences (zipmap candidates) (into []))
-          ;; E.g. (["abc" 3] ["a!b!c!" 1])
-          candidate-occs-tuples
-          (->> occs-by-choice
-               (filter (fn [[_ occs]] (and (chars-all-present? occs)
-                                           (chars-in-order? occs))))
-               (map (fn [[candidate occs]] [candidate (calc-score occs)]))
-               (sort-by second >))]
-      (if with-scores?
-        candidate-occs-tuples
-        (map first candidate-occs-tuples)))))
-
-(comment (fuzzy-match "abc" ["ab" "abc" "a!b!c!" "ab!"]))
-(comment (fuzzy-match "abc" ["ab" "abc" "a!b!c!" "ab!"] :with-scores? false))
-(comment (fuzzy-match "abc" ["ab" "abc" "a!b!c!" "ab!"] :with-scores? true))
+  {:pre [(not-empty search)]}
+  (let [occurrences (map #(map (fn [i] (all-indices-of % i))
+                               (s/split search #""))
+                         candidates)
+        occs-by-choice (map vector candidates occurrences)
+        ;; E.g. '(["abc" 3] ["a!b!c!" 1])
+        candidate-occs-tuples           ;
+        (->> occs-by-choice
+             (filter (fn [[_ occs]] (and (chars-all-present? occs)
+                                         (chars-in-order? occs))))
+             ;; Rationale for the defaults to `calc-score`:
+             ;; * -2 for the starting occurrence so that the
+             ;; score doesn't get affected by whether a candidate's
+             ;; starts with `search`'s first char
+             ;; * score of 1 to account for the fact that the `search`'s
+             ;; first char is automatically counted in the score
+             (map (fn [[candidate occs]] [candidate (calc-score occs -2 1)]))
+             (sort-by second >))]
+    (if with-scores?
+      candidate-occs-tuples
+      (map first candidate-occs-tuples))))
