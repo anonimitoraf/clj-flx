@@ -38,7 +38,7 @@
                      ["aabbc" 2]
                      ["aabbcc" 2])]
       (is (= expected (fuzzy-match search candidates :with-scores? true)))))
-  (testing "contiguous search char occurrences"
+  (testing "Non-contiguous search char occurrences"
     (let [search "abc"
           candidates ["a!b!c"
                       "a!!b!!c"
@@ -48,4 +48,43 @@
                      ["a!!b!!c" 1]
                      ["!a!b!c!" 1]
                      ["aa!bb!cc" 1])]
+      (is (= expected (fuzzy-match search candidates :with-scores? true))))))
+
+(deftest matches-and-non-matches
+  (testing "Duplicates chars"
+    (let [search "aaa"
+          candidates ["aaa"
+                      "aaaa"
+                      "aa"
+                      "a!a!a"]
+          expected '(["aaa" 3]
+                     ["aaaa" 3]
+                     ;; "aa" - non-match
+                     ["a!a!a" 1])]
+      (is (= expected (fuzzy-match search candidates :with-scores? true))))
+    (let [search "aabc"
+          candidates ["aabc"
+                      "abac"
+                      "abc"
+                      "aaabc"
+                      "ababc"
+                      "aabaabc"]
+          expected '(["aabc" 4]
+                     ;; "abac" - non-match
+                     ;; "abc" - non-match
+                     ["aaabc" 4]
+                     ["aabaabc" 4]
+                     ["ababc" 3])]
+      (is (= expected (fuzzy-match search candidates :with-scores? true))))
+    (let [search "abab"
+          candidates ["abab"
+                      "abbabb"
+                      "abba"
+                      "abbab"
+                      "ababb"]
+          expected '(["abab" 4]
+                     ["ababb" 4]
+                     ["abbabb" 3]
+                     ;; "abba"- non-match
+                     ["abbab" 3])]
       (is (= expected (fuzzy-match search candidates :with-scores? true))))))

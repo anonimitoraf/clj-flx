@@ -16,9 +16,16 @@
 
 (defn ^:private chars-all-present?
   [occurrences]
-  ;; An empty occ set means the corresponding input char does not exist
-  ;; in the choice
-  (every? not-empty occurrences))
+  (->> occurrences
+       (reduce (fn [[visited satisfied?] curr-occs]
+                 (let [unvisited (filter #(not (contains? visited %))
+                                         curr-occs)
+                       new-visited (conj visited (first unvisited))]
+                   (if (empty? unvisited)
+                     [visited false]
+                     [new-visited (and true satisfied?)])))
+               [#{} true])
+       (second)))
 
 (defn ^:private chars-in-order?
   [occurrences]
@@ -27,11 +34,17 @@
   (let [correct-order? (fn [prev-occs curr]
                          (some #(< % curr) prev-occs))]
     (->> occurrences
-         (reduce (fn [[prev-occs satisfied?] curr-occs]
-                   [curr-occs (and satisfied?
-                                   (some #(correct-order? prev-occs %) curr-occs))])
-                 [[-1] true])
-         (second))))
+         (reduce (fn [[prev-occs visited satisfied?] curr-occs]
+                   (let [curr-occs (filter #(not (contains? visited %)) curr-occs)
+                         satisfied? (and satisfied?
+                                         (not-empty curr-occs)
+                                         (some #(correct-order? prev-occs %) curr-occs))
+                         visited (if (not-empty curr-occs)
+                                   (conj visited (first curr-occs))
+                                   visited)]
+                     [curr-occs visited satisfied?]))
+                 [[-1] #{} true])
+         (last))))
 
 (defn ^:private calc-score
   [occurrences prev-occ score]
@@ -56,6 +69,11 @@
        (filter #(= (second %) needle))
        (map first)))
 
+(defn ^:private get-occurrences
+  [search candidate]
+  (map #(all-indices-of candidate %)
+       (s/split search #"")))
+
 (defn fuzzy-match
   "Given a non-empty `search` string and a seq of `candidates`, returns (fuzzy) matched
   `candidates` ordered desc by score.
@@ -79,12 +97,10 @@
     E.g. Given `search` \"abc\", candidate \"ab!c\" is considered a better match than \"a!b!c\"."
   [search candidates & {:keys [with-scores?]}]
   {:pre [(not-empty search)]}
-  (let [occurrences (map #(map (fn [i] (all-indices-of % i))
-                               (s/split search #""))
-                         candidates)
+  (let [occurrences (map #(get-occurrences search %) candidates)
         occs-by-choice (map vector candidates occurrences)
         ;; E.g. '(["abc" 3] ["a!b!c!" 1])
-        candidate-occs-tuples           ;
+        candidate-occs-tuples
         (->> occs-by-choice
              (filter (fn [[_ occs]] (and (chars-all-present? occs)
                                          (chars-in-order? occs))))
