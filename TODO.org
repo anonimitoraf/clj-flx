@@ -1,0 +1,5 @@
+#+TITLE: Things to do
+
+* Progress [0/2]
+** TODO [ ] Use loop-recur instead of non-tail recursion
+** TODO [ ] Benchmarks (don't forget to update README.md)
