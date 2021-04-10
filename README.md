@@ -1,6 +1,7 @@
 # clj-flx
 
-[![clj-flx](https://img.shields.io/clojars/v/net.clojars.anonimitoraf/clj-flx.svg)](https://clojars.org/net.clojars.anonimitoraf/clj-flx)
+nonimitoraf/clj-flx)
+[![clj-flx](https://img.shields.io/clojars/v/anonimitoraf/clj-flx.svg)](https://clojars.org/anonimitoraf/clj-flx)
 
 Flexible "fuzzy" matching.
 
