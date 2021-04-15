@@ -1,6 +1,6 @@
 (ns anonimitoraf.clj-flx-test
   (:require [clojure.test :refer [deftest testing is]]
-            [anonimitoraf.clj-flx :refer [fuzzy-match]]))
+            [anonimitoraf.clj-flx :refer [fuzzy-match score]]))
 
 (deftest non-matches
   (testing "Non-matches"
@@ -88,3 +88,20 @@
                      ;; "abba"- non-match
                      ["abbab" 3])]
       (is (= expected (fuzzy-match search candidates :with-scores? true))))))
+
+(deftest scores
+  (testing "Calculating just the scores for non-matches"
+    (is (= nil (score "abc" "ab")))
+    (is (= nil (score "abc" "abd")))
+    (is (= nil (score "abc" "bac"))))
+  (testing "Calculating just the scores for matches"
+    (is (= 3 (score "abc" "abc")))
+    (is (= 2 (score "abc" "a!bc")))
+    (is (= 2 (score "abc" "ab!c")))
+    (is (= 1 (score "abc" "a!b!c")))
+    (is (= 1 (score "abc" "!a!b!c!")))
+    (is (= 3 (score "abc" "!abc!")))
+    (is (= 3 (score "abc" "aabc")))
+    (is (= 2 (score "abc" "abbc")))
+    (is (= 3 (score "abc" "abcc")))
+    (is (= 2 (score "abc" "aabbcc")))))

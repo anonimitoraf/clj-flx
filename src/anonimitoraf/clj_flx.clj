@@ -74,6 +74,31 @@
   (map #(all-indices-of candidate %)
        (s/split search #"")))
 
+(defn score
+  "Given a non-empty `search` string and a `candidate` match,
+  calculates the match score, as follows:
+
+  * A score of nil stands for a non-match.
+  * If `search`'s chars don't all exist or are not in the same order
+  in `candidate`, then we have a non-match.
+  For example:
+    * search: 'abc', candidate:'abd' ('c' not in candidate)
+    * search: 'abc', candidate: 'bca' (search's chars are in the same order in candidate)
+  * 1 point for every consecutive search's chars in candidate. Although
+  the first char of search counts as 1 'honorary' point.
+  For example:
+    * search: 'abc', candidate: 'ab!c' = 2 points, 'ab' are consecutive
+    * search: 'abc', candidate: 'a!b!c' = 1 points, 'a' counts as an honorary 1 point
+    * search: 'abc', candidate: '!abc!' = 3 points, 'abc' are consecutive
+  "
+  [search candidate]
+  {:pre [(and (not-empty search) (not-empty candidate))]}
+  (let [occs (get-occurrences search candidate)]
+    (if (and (chars-all-present? occs)
+             (chars-in-order? occs))
+      (calc-score occs -2 1)
+      nil)))
+
 (defn fuzzy-match
   "Given a non-empty `search` string and a seq of `candidates`, returns (fuzzy) matched
   `candidates` ordered desc by score.
