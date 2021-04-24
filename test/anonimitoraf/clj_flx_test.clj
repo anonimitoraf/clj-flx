@@ -5,7 +5,7 @@
 (deftest non-matches
   (testing "Non-matches"
     (is (= '()
-           (fuzzy-match "abc" ["" "a" "ab" "abd" "bca" "cba" "aaa"])))))
+           (fuzzy-match "abc" ["a" "ab" "abd" "bca" "cba" "aaa"])))))
 
 (deftest matches
   (testing "Contiguous search char occurrences"

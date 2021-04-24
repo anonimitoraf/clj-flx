@@ -47,20 +47,22 @@
          (last))))
 
 (defn ^:private calc-score
-  [occurrences prev-occ score]
-  (let [curr-occs (first occurrences)]
-    (if (empty? curr-occs)
-      score
-      (let [new-occs (drop 1 occurrences)]
-        (->> curr-occs
-             (map (fn [occ]
-                    (calc-score
-                     new-occs
-                     occ
-                     (if (= prev-occ (dec occ))
-                       (inc score)
-                       score))))
-             (apply max))))))
+  "Returns [dp-matrix score]."
+  [search candidate]
+  (->> candidate
+       (map-indexed vector)
+       (reduce (fn [[matrix max-so-far] [i c]]
+                 (let [row (let [prev-row (nth matrix (dec i)
+                                               (repeat (count search) 0))]
+                             (->> search
+                                  (map-indexed vector)
+                                  (map (fn [[j s]]
+                                         (let [prev-cell (nth prev-row (dec j) 0)]
+                                           (if (= s c) (inc prev-cell) 0))))
+                                  (into [])))]
+                   [(conj matrix row)
+                    (max max-so-far (apply max row))]))
+               [[] 0])))
 
 (defn ^:private all-indices-of
   [haystack needle]
@@ -84,20 +86,18 @@
   For example:
     * search: 'abc', candidate:'abd' ('c' not in candidate)
     * search: 'abc', candidate: 'bca' (search's chars are in the same order in candidate)
-  * 1 point for every consecutive search's chars in candidate. Although
-  the first char of search counts as 1 'honorary' point.
+  * Otherwise, a `candidate`'s score is the length of the longest common substring in both `search` and `candidate`.
   For example:
-    * search: 'abc', candidate: 'ab!c' = 2 points, 'ab' are consecutive
-    * search: 'abc', candidate: 'a!b!c' = 1 points, 'a' counts as an honorary 1 point
-    * search: 'abc', candidate: '!abc!' = 3 points, 'abc' are consecutive
+    * search: 'abc', candidate: 'ab!c' = score of 2, longest common substring is 'ab'
+    * search: 'abc', candidate: 'a!b!c' = score of 1, 'a' or 'b' or 'c'
+    * search: 'abc', candidate: '!abc!' = score of 3, 'abc'
   "
   [search candidate]
   {:pre [(and (not-empty search) (not-empty candidate))]}
   (let [occs (get-occurrences search candidate)]
-    (if (and (chars-all-present? occs)
-             (chars-in-order? occs))
-      (calc-score occs -2 1)
-      nil)))
+    (when (and (chars-all-present? occs)
+               (chars-in-order? occs))
+      (second (calc-score search candidate)))))
 
 (defn fuzzy-match
   "Given a non-empty `search` string and a seq of `candidates`, returns (fuzzy) matched
@@ -117,26 +117,15 @@
   * A candidate is a match if all of `search`'s chars are in the same order
     (note: not necessarily consecutively) in the candidate.
     E.g. Given `search` \"abc\", candidate \"a1b2c3\" is a match, but \"bca\" is not.
-  * The more consecutive `search` chars are in a candidate, the higher it's score is.
-    The higher the score, the better of a match a candidate is.
+  * The higher the score, the better of a match a candidate is.
     E.g. Given `search` \"abc\", candidate \"ab!c\" is considered a better match than \"a!b!c\"."
   [search candidates & {:keys [with-scores?]}]
   {:pre [(not-empty search)]}
-  (let [occurrences (map #(get-occurrences search %) candidates)
-        occs-by-choice (map vector candidates occurrences)
-        ;; E.g. '(["abc" 3] ["a!b!c!" 1])
-        candidate-occs-tuples
-        (->> occs-by-choice
-             (filter (fn [[_ occs]] (and (chars-all-present? occs)
-                                         (chars-in-order? occs))))
-             ;; Rationale for the defaults to `calc-score`:
-             ;; * -2 for the starting occurrence so that the
-             ;; score doesn't get affected by whether a candidate's
-             ;; starts with `search`'s first char
-             ;; * score of 1 to account for the fact that the `search`'s
-             ;; first char is automatically counted in the score
-             (map (fn [[candidate occs]] [candidate (calc-score occs -2 1)]))
-             (sort-by second >))]
+  (let [scores-by-candidate (zipmap candidates
+                                    (map #(score search %) candidates))
+        candidate-score-tuples (->> scores-by-candidate
+                                    (filter (comp not nil? second))
+                                    (sort-by second >))]
     (if with-scores?
-      candidate-occs-tuples
-      (map first candidate-occs-tuples))))
+      candidate-score-tuples
+      (map first candidate-score-tuples))))
