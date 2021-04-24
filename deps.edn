@@ -9,6 +9,9 @@
                  :sha "b6b3193fcc42659d7e46ecd1884a228993441182"}}
    :main-opts ["-m" "cognitect.test-runner"
                "-d" "test"]}
+  :benchmark {:extra-paths ["benchmark"]
+              :extra-deps {criterium/criterium {:mvn/version "0.4.6"}}
+              :exec-fn anonimitoraf.clj-flx-benchmark/run}
   :jar {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
         :exec-fn hf.depstar/jar
         :exec-args {:jar "clj-flx.jar" :sync-pom true}}
